@@ -66,8 +66,13 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn adjust_coins(&mut self, adjustment: u8) {
-        self.coins += adjustment;
+    pub fn adjust_coins(&mut self, adjustment: i8) {
+        let new: i8 = self.coins as i8 + adjustment;
+        if new < 0 {
+            self.coins = 0;
+        } else {
+            self.coins = new as u8;
+        }
     }
 }
 
@@ -129,6 +134,15 @@ impl Game {
         None
     }
 
+    pub fn find_player_mut(&mut self, nick: &str) -> Option<&mut Player> {
+        for p in self.players.iter_mut() {
+            if p.nick == nick {
+                return Some(p)
+            }
+        }
+        None
+    }
+
     pub fn current_player_ding(&self) -> String {
         format!("ding {} it's your turn", self.current_player().nick)
     }
@@ -166,6 +180,22 @@ impl Game {
             let mut current = self.current_player_mut();
             current.adjust_coins(1);
             f(format!("{} Tax'd (now at {})", current.nick, current.coins));
+        }
+        self.next_turn(f);
+    }
+
+    pub fn steal<F: Fn(String)>(&mut self, target: &str, f: F) {
+        {
+            {
+                let mut target_player = self.find_player_mut(&target[..]).unwrap();
+                target_player.adjust_coins(-2);
+                // let target_coins = target_player.coins.clone();
+                drop(target_player);
+            }
+
+            let mut current = self.current_player_mut();
+            current.adjust_coins(2);
+            f(format!("{0} stole from {1} ({0}: {2}, {1}, {3})", current.nick, target, current.coins, current.coins));
         }
         self.next_turn(f);
     }
@@ -282,9 +312,10 @@ impl ActionHandler {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 enum Action {
     Duke,
+    Steal(String),
 }
 
 impl MessageHandler for ActionHandler {
@@ -328,6 +359,14 @@ impl MessageHandler for ActionHandler {
                 });
                 return Ok(());
             },
+            (Some("steal"), Some(from)) => {
+                if game.find_player(from).is_none() {
+                    incoming.reply(format!("I don't know who {} is", from));
+                    return Ok(());
+                }
+
+                Action::Steal(from.to_string())
+            }
             (_, _) => {
                 incoming.reply("Oops, I didn't understand that".to_string());
                 return Ok(());
@@ -357,9 +396,23 @@ impl MessageHandler for ActionHandler {
                 return;
             }
 
-            game.duke(|msg| {
-                replypipe.reply(msg);
-            });
+            match game.state.action.clone() {
+                Some(Action::Duke) => {
+                    game.duke(|msg| {
+                        replypipe.reply(msg);
+                    });
+                },
+                Some(Action::Steal(ref target)) => {
+                    game.steal(&target[..], |msg| {
+                        replypipe.reply(msg);
+                    });
+                },
+                None => {
+                    replypipe.reply("Not sure how we got to this point without an action"
+                                        .to_string());
+                }
+            }
+
         });
 
         Ok(())
