@@ -160,6 +160,15 @@ impl Game {
         }
         self.next_turn(f);
     }
+
+    pub fn tax<F: Fn(String)>(&mut self, f: F) {
+        {
+            let mut current = self.current_player_mut();
+            current.adjust_coins(1);
+            f(format!("{} Tax'd (now at {})", current.nick, current.coins));
+        }
+        self.next_turn(f);
+    }
 }
 
 pub struct StartHandler {
@@ -310,9 +319,15 @@ impl MessageHandler for ActionHandler {
             return Ok(());
         }
 
-        // Make sure that we've dropped game
         let todo = match (action, target) {
             (Some("duke"), None) => Action::Duke,
+            // This special case might not belong, but since it's unblockable we just do it.
+            (Some("tax"), None) => {
+                game.tax(|msg| {
+                    incoming.reply(msg);
+                });
+                return Ok(());
+            },
             (_, _) => {
                 incoming.reply("Oops, I didn't understand that".to_string());
                 return Ok(());
