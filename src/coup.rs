@@ -155,7 +155,7 @@ impl Game {
     pub fn duke<F: Fn(String)>(&mut self, f: F) {
         {
             let mut current = self.current_player_mut();
-            current.adjust_coins(2);
+            current.adjust_coins(3);
             f(format!("{} Duke'd (now at {})", current.nick, current.coins));
         }
         self.next_turn(f);
