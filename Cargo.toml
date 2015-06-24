@@ -1,0 +1,10 @@
+[package]
+name = "coup"
+version = "0.1.0"
+authors = ["Richo Healey <richo@psych0tik.net>"]
+
+[dependencies]
+chatbot = "0.2.2"
+rustc-serialize = "*"
+regex = "0.1.33"
+log = "0.3.1"
