@@ -81,6 +81,7 @@ type WrappedGame = Arc<Mutex<Game>>;
 pub struct State {
     action: Option<Action>,
     bullshit: Option<String>, // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash the Player object
+    counter: Option<String>,
 }
 
 impl State {
@@ -88,6 +89,7 @@ impl State {
         State {
             action: None,
             bullshit: None,
+            counter: None,
         }
     }
 }
