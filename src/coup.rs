@@ -85,6 +85,10 @@ impl Game {
         }
     }
 
+    pub fn current_turn(&self) -> &Player {
+        &self.players[self.turn as usize]
+    }
+
     pub fn find_player(&self, nick: &str) -> Option<&Player> {
         for p in &self.players {
             if p.nick == nick {
@@ -124,6 +128,7 @@ impl StartHandler {
         } else {
             game.started = true;
             incoming.reply("Starting the game!".to_string());
+            incoming.reply(format!("ding {} it's your turn", game.current_turn().nick));
         }
     }
 }
