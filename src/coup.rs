@@ -327,7 +327,7 @@ impl MessageHandler for ActionHandler {
             let mut game = wrapper.lock().unwrap();
 
             if game.bullshit_called {
-                println!("Someone called bullshit");
+                replypipe.reply("Bullshit called, !turnover a card");
             } else {
                 game.duke(|msg| {
                     replypipe.reply(msg);
@@ -382,6 +382,7 @@ impl MessageHandler for ReactionHandler {
 
         match reaction {
             Some("!bullshit") => {
+                incoming.reply(format!("{} called bullshit", nick));
                 game.bullshit_called = true;
             },
             _ => println!("Nfi what happened"),
