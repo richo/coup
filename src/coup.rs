@@ -111,6 +111,7 @@ impl Game {
         bot.add_handler(StartHandler::new(wrapped.clone()));
         bot.add_handler(JoinHandler::new(wrapped.clone()));
         bot.add_handler(ActionHandler::new(wrapped.clone()));
+        bot.add_handler(ReactionHandler::new(wrapped.clone()));
     }
 }
 
@@ -262,7 +263,8 @@ impl MessageHandler for ActionHandler {
             return Ok(());
         }
 
-        if game.action_submitted { incoming.reply("You've already made your choice".to_string());
+        if game.action_submitted {
+            incoming.reply("You've already made your choice".to_string());
             return Ok(());
         }
 
@@ -297,6 +299,58 @@ impl MessageHandler for ActionHandler {
                 println!("Noone called bullshit");
             }
         });
+
+        Ok(())
+    }
+}
+
+pub struct ReactionHandler {
+    re: Regex,
+    game: WrappedGame,
+}
+
+impl ReactionHandler {
+    fn new(game: WrappedGame) -> ActionHandler {
+        ActionHandler {
+            re: Regex::new(r"!(?P<reaction>bullshit|captain|ambassador|contessa)").unwrap(),
+            game: game,
+        }
+    }
+
+}
+
+impl MessageHandler for ReactionHandler {
+    fn name(&self) -> &str {
+        "ActionHandler"
+    }
+
+    fn re(&self) -> &Regex {
+        &self.re
+    }
+
+    fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
+        let mut game = game!(self);
+        let nick = incoming.user().unwrap().to_string();
+
+        let captures = self.get_captures(incoming.get_contents()).unwrap();
+        let reaction = captures.name("reaction");
+
+        if !game.started {
+            println!("Ignoring attempt to {:?} by {} - the game hasn't started", reaction, nick);
+            return Ok(());
+        }
+
+        if !game.action_submitted {
+            incoming.reply("No action to object to".to_string());
+            return Ok(());
+        }
+
+        match reaction {
+            Some("!bullshit") => {
+                game.bullshit_called = true;
+            },
+            _ => println!("Nfi what happened"),
+        }
 
         Ok(())
     }
