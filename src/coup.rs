@@ -85,6 +85,15 @@ impl Game {
         }
     }
 
+    pub fn find_player(&self, nick: &str) -> Option<&Player> {
+        for p in &self.players {
+            if p.nick == nick {
+                return Some(&p)
+            }
+        }
+        None
+    }
+
     /// Binds this game to the chatbot, creating handlers for everything required.
     pub fn bind(self, bot: &mut Chatbot) {
         let wrapped = Arc::new(Mutex::new(self));
@@ -157,10 +166,12 @@ impl JoinHandler {
         } else {
             let nick = incoming.user().unwrap().to_string();
             incoming.reply(format!("Welcome to the game, {}", &nick));
+            let (c1, c2) = (game.deck.take(), game.deck.take());
+            incoming.reply_private(format!("You hold a {:?} and a {:?}", c1, c2));
             // We just deal to players as they join
             let player = Player {
-                c1: Card::Alive(game.deck.take()),
-                c2: Card::Alive(game.deck.take()),
+                c1: Card::Alive(c1),
+                c2: Card::Alive(c2),
                 coins: 2,
                 nick: nick,
             };
