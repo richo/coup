@@ -3,6 +3,7 @@ extern crate rustc_serialize;
 extern crate chatbot;
 #[macro_use]
 extern crate log;
+extern crate rand;
 extern crate regex;
 
 mod debug;

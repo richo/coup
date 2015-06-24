@@ -1,5 +1,6 @@
 use regex::Regex;
-
+use rand;
+use rand::{Rng};
 use std::sync::{Arc, Mutex};
 use chatbot::Chatbot;
 use chatbot::handler::{MessageHandler,HandlerResult};
@@ -8,6 +9,33 @@ use chatbot::message::IncomingMessage;
 macro_rules! game{
     ($s:ident) => {
         $s.game.lock().unwrap()
+    }
+}
+
+pub struct Deck {
+    cards: Vec<Role>,
+}
+
+impl Deck {
+    pub fn new() -> Deck {
+        let cards = vec![
+            Role::Ambassador, Role::Ambassador,
+            Role::Assassin, Role::Assassin,
+            Role::Captain, Role::Captain,
+            Role::Contessa, Role::Contessa,
+            Role::Duke, Role::Duke,
+        ];
+        Deck {
+            cards: cards,
+        }
+    }
+
+    pub fn take(&mut self) -> Role {
+        self.cards.pop().unwrap()
+    }
+
+    pub fn shuffle(&mut self) {
+        rand::thread_rng().shuffle(&mut self.cards);
     }
 }
 
@@ -37,14 +65,18 @@ type WrappedGame = Arc<Mutex<Game>>;
 pub struct Game {
     players: Vec<Player>,
     started: bool,
+    deck: Deck,
     turn: u8,
 }
 
 impl Game {
     pub fn new() -> Game {
+        let mut deck = Deck::new();
+        deck.shuffle();
         Game {
             players: vec![],
             started: false,
+            deck: deck,
             turn: 0,
         }
     }
