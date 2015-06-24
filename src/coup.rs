@@ -39,6 +39,7 @@ impl Deck {
     }
 }
 
+#[derive(Debug)]
 pub enum Role {
     Ambassador,
     Assassin,
@@ -47,14 +48,16 @@ pub enum Role {
     Duke,
 }
 
+#[derive(Debug)]
 pub enum Card {
     Alive(Role),
     Dead(Role),
 }
 
+#[derive(Debug)]
 pub struct Player {
-    c1: Role,
-    c2: Role,
+    c1: Card,
+    c2: Card,
     coins: u8,
     nick: String,
 }
@@ -156,11 +159,12 @@ impl JoinHandler {
             incoming.reply(format!("Welcome to the game, {}", &nick));
             // We just deal to players as they join
             let player = Player {
-                c1: game.deck.take(),
-                c2: game.deck.take(),
+                c1: Card::Alive(game.deck.take()),
+                c2: Card::Alive(game.deck.take()),
                 coins: 2,
                 nick: nick,
             };
+            println!("[-] Dealt in: {:?}", player);
             game.players.push(player);
         }
     }
