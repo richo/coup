@@ -56,6 +56,7 @@ pub struct Player {
     c1: Role,
     c2: Role,
     coins: u8,
+    nick: String,
 }
 
 type WrappedGame = Arc<Mutex<Game>>;
@@ -84,8 +85,8 @@ impl Game {
     /// Binds this game to the chatbot, creating handlers for everything required.
     pub fn bind(self, bot: &mut Chatbot) {
         let wrapped = Arc::new(Mutex::new(self));
-        let start = StartHandler::new(wrapped);
-        bot.add_handler(start);
+        bot.add_handler(StartHandler::new(wrapped.clone()));
+        bot.add_handler(JoinHandler::new(wrapped.clone()));
     }
 }
 
@@ -130,3 +131,52 @@ impl MessageHandler for StartHandler {
     }
 }
 
+pub struct JoinHandler {
+    re: Regex,
+    game: WrappedGame,
+}
+
+impl JoinHandler {
+    fn new(game: WrappedGame) -> JoinHandler {
+        JoinHandler {
+            re: Regex::new(r"!join").unwrap(),
+            game: game,
+        }
+    }
+
+    fn join(&self, incoming: &IncomingMessage) {
+        let mut game = game!(self);
+        // TODO(richo) Check that this player isn't already in the game
+        if game.started {
+            incoming.reply("Game already started".to_string());
+        } else if game.players.len() > 6 {
+            incoming.reply("Can't have a game with more than 6 players".to_string());
+        } else {
+            let nick = incoming.user().unwrap().to_string();
+            incoming.reply(format!("Welcome to the game, {}", &nick));
+            // We just deal to players as they join
+            let player = Player {
+                c1: game.deck.take(),
+                c2: game.deck.take(),
+                coins: 2,
+                nick: nick,
+            };
+            game.players.push(player);
+        }
+    }
+}
+
+impl MessageHandler for JoinHandler {
+    fn name(&self) -> &str {
+        "JoinHandler"
+    }
+
+    fn re(&self) -> &Regex {
+        &self.re
+    }
+
+    fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
+        self.join(incoming);
+        Ok(())
+    }
+}
