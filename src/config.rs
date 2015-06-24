@@ -1,11 +1,11 @@
 use std::io;
-use std::io::{Read,Write};
+use std::io::Read;
 use std::convert;
 use std::fs::File;
 
 use rustc_serialize::json;
 
-use chatbot::adapter::{IrcAdapter,IrcConfig};
+use chatbot::adapter::IrcConfig;
 
 
 // Named kinda weirdly to avoid colliding with the chatbots notion of config
