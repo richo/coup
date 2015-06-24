@@ -65,6 +65,12 @@ pub struct Player {
     nick: String,
 }
 
+impl Player {
+    pub fn adjust_coins(&mut self, adjustment: u8) {
+        self.coins += adjustment;
+    }
+}
+
 type WrappedGame = Arc<Mutex<Game>>;
 
 // Storing the players in a vec and treating it like a circular buffer simplifies bookkeeping and
@@ -79,6 +85,8 @@ pub struct Game {
 }
 
 impl Game {
+    // TODO Split this out into a StartedGame or something, to make some of these methods
+    // uncallable, since they can panic.
     pub fn new() -> Game {
         let mut deck = Deck::new();
         deck.shuffle();
@@ -92,8 +100,12 @@ impl Game {
         }
     }
 
-    pub fn current_turn(&self) -> &Player {
+    pub fn current_player(&self) -> &Player {
         &self.players[self.turn as usize]
+    }
+
+    pub fn current_player_mut(&mut self) -> &mut Player {
+        &mut self.players[self.turn as usize]
     }
 
     pub fn find_player(&self, nick: &str) -> Option<&Player> {
@@ -105,6 +117,18 @@ impl Game {
         None
     }
 
+    pub fn current_player_ding(&self) -> String {
+        format!("ding {} it's your turn", self.current_player().nick)
+    }
+
+    pub fn next_turn<F: Fn(String)>(&mut self, f: F) {
+        let players = self.players.len();
+        self.turn = (self.turn + 1) % players as u8;
+        self.action_submitted = false;
+        self.bullshit_called = false;
+        f(self.current_player_ding());
+    }
+
     /// Binds this game to the chatbot, creating handlers for everything required.
     pub fn bind(self, bot: &mut Chatbot) {
         let wrapped = Arc::new(Mutex::new(self));
@@ -112,6 +136,18 @@ impl Game {
         bot.add_handler(JoinHandler::new(wrapped.clone()));
         bot.add_handler(ActionHandler::new(wrapped.clone()));
         bot.add_handler(ReactionHandler::new(wrapped.clone()));
+    }
+
+    // We have to define all the mutative actions on the game itself, because we've entirely lost
+    // access to the handlers by the time we can poke them
+
+    pub fn duke<F: Fn(String)>(&mut self, f: F) {
+        {
+            let mut current = self.current_player_mut();
+            current.adjust_coins(2);
+            f(format!("{} Duke'd (now at {})", current.nick, current.coins));
+        }
+        self.next_turn(f);
     }
 }
 
@@ -137,7 +173,7 @@ impl StartHandler {
         } else {
             game.started = true;
             incoming.reply("Starting the game!".to_string());
-            incoming.reply(format!("ding {} it's your turn", game.current_turn().nick));
+            incoming.reply(game.current_player_ding());
         }
     }
 }
@@ -224,11 +260,6 @@ impl ActionHandler {
             game: game,
         }
     }
-
-    fn duke(&self, player: Player, incoming: &IncomingMessage) {
-        // Kinda lurky. We announce the intention of the player to do a thing, make sure we drop
-        // the lock
-    }
 }
 
 #[derive(Debug)]
@@ -258,7 +289,7 @@ impl MessageHandler for ActionHandler {
             return Ok(());
         }
 
-        if game.current_turn().nick != nick {
+        if game.current_player().nick != nick {
             println!("Ignoring attempt to {:?} by {} - it's not their turn", action, nick);
             return Ok(());
         }
@@ -287,16 +318,20 @@ impl MessageHandler for ActionHandler {
         // it's course, but we hang onto a clone of it's containing Arc so we can find it again in
         // our closure
         drop(game);
+        // TODO(richo) It seems like I really should add explicit functionality for this to chatbot
+        let replypipe = incoming.clone();
         let wrapper = self.game.clone();
 
         thread::spawn(move || {
             thread::sleep_ms(OBJECTION_TIMEOUT);
-            let game = wrapper.lock().unwrap();
+            let mut game = wrapper.lock().unwrap();
 
             if game.bullshit_called {
                 println!("Someone called bullshit");
             } else {
-                println!("Noone called bullshit");
+                game.duke(|msg| {
+                    replypipe.reply(msg);
+                });
             }
         });
 
