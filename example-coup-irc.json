@@ -1,0 +1,6 @@
+{
+    "nick": "gm",
+    "server": "irc.freenode.net",
+    "channels": ["#coup"],
+    "tls": false
+}
