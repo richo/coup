@@ -75,6 +75,7 @@ pub struct Game {
     deck: Deck,
     turn: u8,
     action_submitted: bool,
+    bullshit_called: bool,
 }
 
 impl Game {
@@ -87,6 +88,7 @@ impl Game {
             deck: deck,
             turn: 0,
             action_submitted: false,
+            bullshit_called: false,
         }
     }
 
@@ -280,14 +282,20 @@ impl MessageHandler for ActionHandler {
         println!("{:?} is attempting to {:?}", incoming.user(), todo);
 
         // We drop our lock on the game to allow the counteraction handler to have a chance to run
-        // it's course
-
+        // it's course, but we hang onto a clone of it's containing Arc so we can find it again in
+        // our closure
         drop(game);
+        let wrapper = self.game.clone();
 
         thread::spawn(move || {
             thread::sleep_ms(OBJECTION_TIMEOUT);
-            println!("Checking to see if anyone objected");
-            // let game = game!(self);
+            let game = wrapper.lock().unwrap();
+
+            if game.bullshit_called {
+                println!("Someone called bullshit");
+            } else {
+                println!("Noone called bullshit");
+            }
         });
 
         Ok(())
