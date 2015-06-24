@@ -163,13 +163,15 @@ impl JoinHandler {
 
     fn join(&self, incoming: &IncomingMessage) {
         let mut game = game!(self);
+        let nick = incoming.user().unwrap().to_string();
         // TODO(richo) Check that this player isn't already in the game
         if game.started {
             incoming.reply("Game already started".to_string());
+        } else if game.find_player(&nick).is_some() {
+            incoming.reply(format!("You're already in the game, {}", nick));
         } else if game.players.len() > 6 {
             incoming.reply("Can't have a game with more than 6 players".to_string());
         } else {
-            let nick = incoming.user().unwrap().to_string();
             incoming.reply(format!("Welcome to the game, {}", &nick));
             let (c1, c2) = (game.deck.take(), game.deck.take());
             incoming.reply_private(format!("You hold a {:?} and a {:?}", c1, c2));
