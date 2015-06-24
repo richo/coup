@@ -73,6 +73,20 @@ impl Player {
 
 type WrappedGame = Arc<Mutex<Game>>;
 
+pub struct State {
+    action: Option<Action>,
+    bullshit: Option<String>, // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash the Player object
+}
+
+impl State {
+    fn new() -> State {
+        State {
+            action: None,
+            bullshit: None,
+        }
+    }
+}
+
 // Storing the players in a vec and treating it like a circular buffer simplifies bookkeeping and
 // given that the game is capped at 6 players the linear search isn't so bad.
 pub struct Game {
@@ -80,8 +94,7 @@ pub struct Game {
     started: bool,
     deck: Deck,
     turn: u8,
-    action_submitted: bool,
-    bullshit_called: bool,
+    state: State
 }
 
 impl Game {
@@ -95,8 +108,7 @@ impl Game {
             started: false,
             deck: deck,
             turn: 0,
-            action_submitted: false,
-            bullshit_called: false,
+            state: State::new(),
         }
     }
 
@@ -124,8 +136,7 @@ impl Game {
     pub fn next_turn<F: Fn(String)>(&mut self, f: F) {
         let players = self.players.len();
         self.turn = (self.turn + 1) % players as u8;
-        self.action_submitted = false;
-        self.bullshit_called = false;
+        self.state = State::new();
         f(self.current_player_ding());
     }
 
@@ -294,7 +305,7 @@ impl MessageHandler for ActionHandler {
             return Ok(());
         }
 
-        if game.action_submitted {
+        if game.state.action.is_some() {
             incoming.reply("You've already made your choice".to_string());
             return Ok(());
         }
@@ -308,11 +319,11 @@ impl MessageHandler for ActionHandler {
             }
         };
 
-        game.action_submitted = true;
+        println!("{:?} is attempting to {:?}", incoming.user(), todo);
+        game.state.action = Some(todo);
 
         incoming.reply(format!("Alright jerks, you have {}s to object to {}",
                                OBJECTION_TIMEOUT / 1000, nick));
-        println!("{:?} is attempting to {:?}", incoming.user(), todo);
 
         // We drop our lock on the game to allow the counteraction handler to have a chance to run
         // it's course, but we hang onto a clone of it's containing Arc so we can find it again in
@@ -326,13 +337,14 @@ impl MessageHandler for ActionHandler {
             thread::sleep_ms(OBJECTION_TIMEOUT);
             let mut game = wrapper.lock().unwrap();
 
-            if game.bullshit_called {
-                replypipe.reply("Bullshit called, !turnover a card");
-            } else {
-                game.duke(|msg| {
-                    replypipe.reply(msg);
-                });
+            if let Some(ref nick) = game.state.bullshit {
+                replypipe.reply(format!("{} called bullshit, !turnover a card", nick));
+                return;
             }
+
+            game.duke(|msg| {
+                replypipe.reply(msg);
+            });
         });
 
         Ok(())
@@ -375,7 +387,7 @@ impl MessageHandler for ReactionHandler {
             return Ok(());
         }
 
-        if !game.action_submitted {
+        if game.state.action.is_none() {
             incoming.reply("No action to object to".to_string());
             return Ok(());
         }
@@ -383,7 +395,7 @@ impl MessageHandler for ReactionHandler {
         match reaction {
             Some("!bullshit") => {
                 incoming.reply(format!("{} called bullshit", nick));
-                game.bullshit_called = true;
+                game.state.bullshit = Some(nick);
             },
             _ => println!("Nfi what happened"),
         }
