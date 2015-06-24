@@ -1,6 +1,7 @@
 use regex::Regex;
 use rand;
 use rand::{Rng};
+use std::thread;
 use std::sync::{Arc, Mutex};
 use chatbot::Chatbot;
 use chatbot::handler::{MessageHandler,HandlerResult};
@@ -11,6 +12,8 @@ macro_rules! game{
         $s.game.lock().unwrap()
     }
 }
+
+const OBJECTION_TIMEOUT: u32 = 5000;
 
 pub struct Deck {
     cards: Vec<Role>,
@@ -71,6 +74,7 @@ pub struct Game {
     started: bool,
     deck: Deck,
     turn: u8,
+    action_submitted: bool,
 }
 
 impl Game {
@@ -82,6 +86,7 @@ impl Game {
             started: false,
             deck: deck,
             turn: 0,
+            action_submitted: false,
         }
     }
 
@@ -103,6 +108,7 @@ impl Game {
         let wrapped = Arc::new(Mutex::new(self));
         bot.add_handler(StartHandler::new(wrapped.clone()));
         bot.add_handler(JoinHandler::new(wrapped.clone()));
+        bot.add_handler(ActionHandler::new(wrapped.clone()));
     }
 }
 
@@ -199,6 +205,91 @@ impl MessageHandler for JoinHandler {
 
     fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
         self.join(incoming);
+        Ok(())
+    }
+}
+
+pub struct ActionHandler {
+    re: Regex,
+    game: WrappedGame,
+}
+
+impl ActionHandler {
+    fn new(game: WrappedGame) -> ActionHandler {
+        ActionHandler {
+            re: Regex::new(r"!(?P<action>duke|tax|income|steal|assassinate|ambassador|foreignaid) ?(?P<target>[a-zA-Z0-9_]+)?").unwrap(),
+            game: game,
+        }
+    }
+
+    fn duke(&self, player: Player, incoming: &IncomingMessage) {
+        // Kinda lurky. We announce the intention of the player to do a thing, make sure we drop
+        // the lock
+    }
+}
+
+#[derive(Debug)]
+enum Action {
+    Duke,
+}
+
+impl MessageHandler for ActionHandler {
+    fn name(&self) -> &str {
+        "ActionHandler"
+    }
+
+    fn re(&self) -> &Regex {
+        &self.re
+    }
+
+    fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
+        let mut game = game!(self);
+        let nick = incoming.user().unwrap().to_string();
+
+        let captures = self.get_captures(incoming.get_contents()).unwrap();
+        let action = captures.name("action");
+        let target = captures.name("target");
+
+        if !game.started {
+            println!("Ignoring attempt to {:?} by {} - the game hasn't started", action, nick);
+            return Ok(());
+        }
+
+        if game.current_turn().nick != nick {
+            println!("Ignoring attempt to {:?} by {} - it's not their turn", action, nick);
+            return Ok(());
+        }
+
+        if game.action_submitted { incoming.reply("You've already made your choice".to_string());
+            return Ok(());
+        }
+
+        // Make sure that we've dropped game
+        let todo = match (action, target) {
+            (Some("duke"), None) => Action::Duke,
+            (_, _) => {
+                incoming.reply("Oops, I didn't understand that".to_string());
+                return Ok(());
+            }
+        };
+
+        game.action_submitted = true;
+
+        incoming.reply(format!("Alright jerks, you have {}s to object to {}",
+                               OBJECTION_TIMEOUT / 1000, nick));
+        println!("{:?} is attempting to {:?}", incoming.user(), todo);
+
+        // We drop our lock on the game to allow the counteraction handler to have a chance to run
+        // it's course
+
+        drop(game);
+
+        thread::spawn(move || {
+            thread::sleep_ms(OBJECTION_TIMEOUT);
+            println!("Checking to see if anyone objected");
+            // let game = game!(self);
+        });
+
         Ok(())
     }
 }
