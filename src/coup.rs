@@ -13,7 +13,7 @@ macro_rules! game{
     }
 }
 
-const OBJECTION_TIMEOUT: u32 = 5000;
+const OBJECTION_TIMEOUT: u32 = 5_000;
 
 pub struct Deck {
     cards: Vec<Role>,
