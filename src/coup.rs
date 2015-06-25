@@ -42,7 +42,7 @@ impl Deck {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub enum Role {
     Ambassador,
     Assassin,
@@ -78,6 +78,7 @@ impl Player {
 
 type WrappedGame = Arc<Mutex<Game>>;
 
+#[derive(Clone)]
 pub struct State {
     action: Option<Action>,
     // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash
@@ -409,27 +410,25 @@ impl MessageHandler for ActionHandler {
             thread::sleep_ms(OBJECTION_TIMEOUT);
             let mut game = wrapper.lock().unwrap();
 
-            if let Some(ref nick) = game.state.bullshit {
-                replypipe.reply(format!("{} called bullshit, !turnover a card", nick));
-                return;
-            }
+            // This closure gets to actually Do A Thing iff noone objects
 
-            match game.state.action.clone() {
-                Some(Action::Duke) => {
-                    game.duke(|msg| {
-                        replypipe.reply(msg);
-                    });
-                },
-                Some(Action::Steal(ref target)) => {
-                    game.steal(&target[..], |msg| {
-                        replypipe.reply(msg);
-                    });
-                },
-                None => {
-                    replypipe.reply("Not sure how we got to this point without an action"
-                                        .to_string());
-                }
-            }
+            if let State { action: Some(ref action),
+                           bullshit: None,
+                           counter: None,
+                           counter_bullshit: None } = game.state.clone() {
+               match action.clone() {
+                   Action::Duke => {
+                       game.duke(|msg| {
+                           replypipe.reply(msg);
+                       });
+                   },
+                   Action::Steal(ref target) => {
+                       game.steal(&target[..], |msg| {
+                           replypipe.reply(msg);
+                       });
+                   },
+               }
+           }
 
         });
 
