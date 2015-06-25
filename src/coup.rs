@@ -445,7 +445,7 @@ pub struct ReactionHandler {
 impl ReactionHandler {
     fn new(game: WrappedGame) -> ActionHandler {
         ActionHandler {
-            re: Regex::new(r"!(?P<reaction>bullshit|block captain|block ambassador|block contessa)").unwrap(),
+            re: Regex::new(r"!(?P<reaction>bullshit|block duke|block captain|block ambassador|block contessa)").unwrap(),
             game: game,
         }
     }
