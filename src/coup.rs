@@ -331,6 +331,18 @@ impl MessageHandler for ActionHandler {
         &self.re
     }
 
+    // The contract of the ActionHandler's runloop is that:
+    // * It awaits a valid command from the current player, ignoring all others
+    // * Once it recieves on, it allots a timeout to either call bullshit (by anyone) or to block
+    //   (by an eligable player)
+    // * Once this timeout occurs, if noone has objected or blocked:
+    //   - It either executes the action and begins again with the next turn, or
+    // * If someone has called bullshit it:
+    //   - Prompts the player to flip a card,
+    //     (And then either kills their card or deals a new one)
+    // * If someone has blocked:
+    //   - The blocked player may either !cede or !bullshit
+
     fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
         let mut game = game!(self);
         let nick = incoming.user().unwrap().to_string();
