@@ -83,7 +83,8 @@ pub struct State {
     // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash
     // the Player object
     bullshit: Option<String>,
-    counter: Option<String>,
+    counter: Option<(String, Role)>,
+    counter_bullshit: Option<String>,
 }
 
 impl State {
@@ -92,6 +93,7 @@ impl State {
             action: None,
             bullshit: None,
             counter: None,
+            counter_bullshit: None,
         }
     }
 }
