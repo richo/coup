@@ -460,6 +460,8 @@ impl MessageHandler for ReactionHandler {
         &self.re
     }
 
+    /// This handler is responsible for basically everything outside of the normal "I said I would
+    /// do a thing and then did it" flow.
     fn handle(&self, incoming: &IncomingMessage) -> HandlerResult {
         let mut game = game!(self);
         let nick = incoming.user().unwrap().to_string();
