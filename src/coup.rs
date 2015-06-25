@@ -80,7 +80,9 @@ type WrappedGame = Arc<Mutex<Game>>;
 
 pub struct State {
     action: Option<Action>,
-    bullshit: Option<String>, // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash the Player object
+    // Lurky, but I suspect I don't want to dance with the borrow checker trying to actually stash
+    // the Player object
+    bullshit: Option<String>,
     counter: Option<String>,
 }
 
